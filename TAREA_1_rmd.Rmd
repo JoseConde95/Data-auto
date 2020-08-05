@@ -1,0 +1,155 @@
+---
+title: "Evaluación de significancia de una Variable Dummy sobre un modelo"
+author: "Jóse Conde Gálvez"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F)
+```
+
+
+A continuación se resolverá 10 preguntas para ver el paso a paso en la toma de
+decisión de elegir o no una variable exógena dummy para un modelo de regresión lineal.
+Usando la base de datos "auto"
+
+
+
+## Descargando base de datos auto
+Llamamos a las librerías que utilizaremos y descargamos la base de datos auto
+```{r base de datos, echo=TRUE, message=FALSE, warning=FALSE}
+library(dplyr)
+library(Hmisc)
+library(car)
+library(haven)
+auto <- read_dta("https://github.com/JoseConde95/Data-auto/raw/master/auto.dta")
+
+```
+
+
+
+## 1. Renombrar las variables del siguiente modo:
+
+  * foreign: Proc
+  
+  * trunk: Lmaletera
+  
+  * price: Precio
+
+```{r rename, echo=TRUE}
+auto = rename(auto, Proc="foreign", Lmaletera="trunk", Precio="price")
+head(auto)
+```
+
+
+
+## 2. Etiquetar las variables del siguiente modo:
+
+  * Proc: Procedencia del auto
+  
+  * Lmaletero: Longitud del maletero
+  
+  * Precio: Precio del automovil 
+
+```{r etiqueta, echo=TRUE}
+label(auto$Proc)="Procedencia del auto"
+label(auto$Lmaletera)="Longitud del auto"
+label(auto$Precio)="Precio del automovil"
+label(auto)
+```
+
+
+
+## 3. Generar etiquetas de valores mediante el uso de factor sobre la variable Proc        siguiendo las siguientes instrucciones:
+
+  * Local = 0
+  * Extranjero = 1
+
+```{r factor, echo=TRUE}  
+auto$Proc <- factor(auto$Proc, levels = c(0,1), labels = c("Local","Extranjero"))
+table(auto$Proc)
+```  
+  
+
+## 4. Estimar un modelo con la siguiente forma:
+
+$$Precio = \beta_0 +\beta_1Proc+\beta_2Lmaletera$$
+
+
+```{r modelo, echo=TRUE, message=FALSE, warning=FALSE}
+modelo1 <- lm(Precio ~ Proc + Lmaletera, data = auto)
+summary(modelo1)
+```    
+
+
+
+## 5. Valide si Proc es una variable de tipo factor.
+
+```{r validar, echo=TRUE, message=FALSE, warning=FALSE}
+is.factor(auto$Proc)
+```    
+    
+  
+## 6. ¿Explique las razones del cambio a factor de la variable Proc? (Máximo 3 líneas).
+
+Porque por más que las variables tengan los valores 0 y 1 inicialmente, en la base de datos, esto no significa que necesariamente sean del tipo factor.
+Y dado que mi objetivo es crear una dummy exógena para testearla, necesito que esta variable sea del tipo factor, sino estaría forzando a mi variable a comportarse como tal y generaría sesgadez.
+
+## 7. Realice un boxplot de Proc vs Precio. Añádale un título, nombres a los ejes y un color de su preferencia. Interprete el boxplot haciendo uso de la herramienta summary sobre las variables en cuestión.
+## ¿Intuitivamente me dice algo este gráfico? ¿Es definitivo?
+
+La mediana del precio de autos locales es 4782, mientras que la de extranjeros es 5759. Entonces parece que existe una diferencia en promedio del precio de los automóviles locales contra los extranjeros. Sin embargo, eso es solo una apreciación visual, tendríamos que contrastar mediante un test, para poder determinar si la variable dummy formada nos va a ayudar al modelo o no.
+
+
+```{r boxplot, echo=TRUE}
+boxplot(auto$Precio~auto$Proc, main = "Gráfico de Cajas Precio Local Vs Precio Extranjero", 
+                            xlab = "PROCEDENCIA", ylab = "PRECIO", col="green")
+
+summary(auto$Precio[auto$Proc=="Local"])
+summary(auto$Precio[auto$Proc=="Extranjero"])
+```  
+
+
+
+## 8. Realice la prueba de Levene e interprete los resultados.
+Vemos que la variable dummy tiene un F-Value de 0.68, entonces cae en zona de no rechazo de la Hipótesis Nula, también creamos un modelo Anova para corroborar si la dummy creada es necesaria para mi modelo.
+```{r levene, echo=TRUE, message=FALSE, warning=FALSE}
+leveneTest(auto$Precio~auto$Proc, center = median) 
+mod_anova = aov(auto$Precio~auto$Proc)
+summary(mod_anova)
+```
+
+
+## 9. ¿El uso de la variable Proc será conveniente para el modelo?
+
+Como la diferencia entre las medianas no es significativa podemos decir entonces, que no es conveniente dado que la prueba de levene nos revela que las medianas son iguales a un 95% de confianza, no existe una diferencia entre el precio de los autos locales y extranjeros. 
+
+Como existen 52 observaciones locales y 22 extranjeras.
+
+Un análisis extra que podemos realizar es mediante el uso del comando "t1way". Sin embargo debemos tener muestras balanceadas, así que se va a generar una separación de datos dado que nuestras muestras no están balanceadas.
+
+```{r t1way, echo=TRUE, message=FALSE, warning=FALSE, error=FALSE}
+muestras_desbalanceadas = unstack(auto, Precio ~ Proc)
+a = data.frame(precio = muestras_desbalanceadas[[1]][1:22], nivel=factor(1))
+b = data.frame(precio = muestras_desbalanceadas[[2]][1:22], nivel=factor(2))
+fact_columna = rbind(a,b)
+muestras_balanceadas = unstack(fact_columna, precio ~ nivel)
+library(WRS2)
+t1way(fact_columna)
+
+```
+
+
+## 10. ¿Qué tipo de modelo es el desarrollado, y a que se debe su denominación?¿Qué tipo de dummy es la variable Proc en el modelo?
+
+$$Precio = \beta_0 +\beta_1Proc+\beta_2Lmaletera$$
+
+El tipo de modelo creado es un modelo ANCOVA dado que se está haciendo uso de una variable cualitativa Dummy llamada "Proc" dado que  y otra variable cuantitativa Lmaletera, ambas exógenas para tratar de explicar el Precio de los autos.
+
+
+
+
+
+
+
