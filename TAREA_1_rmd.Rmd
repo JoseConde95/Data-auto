@@ -10,6 +10,8 @@ knitr::opts_chunk$set(echo = F)
 ```
 
 
+*Sugerencias y/o comentarios*: https://url2.cl/1LgV6
+
 A continuación se resolverá 10 preguntas para ver el paso a paso en la toma de
 decisión de elegir o no una variable exógena dummy para un modelo de regresión lineal.
 Usando la base de datos "auto"
